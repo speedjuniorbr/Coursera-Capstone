@@ -1,0 +1,246 @@
+---
+title: "Exploratory Data Analysis for Relationship Between Words in NLP"
+author: "Expedito Pinto de Paula Junior"
+date: "11/26/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# To increase memory configuration using RWeka package.
+options(java.parameters = "-Xmx1024m")
+```
+
+## Synopsis
+
+The first step in building a predictive model for text is understanding the distribution and relationship between the words, tokens, and phrases in the text. The objective of this document is show some basiv relationships observed in the dataset and prepare to build a sample linguistic model in NLP (Natural Language Processing).
+
+This document will address the following aspects:
+
+1. Perform a thorough exploratory analysis of the data, understanding the **distribution of the words** and **relationship between the words** in the corpora.
+
+2. Build figures and tables to **understand variation in the frequecies of words and word pairs** in the data.
+
+```{r library, warning=FALSE}
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(tm)
+library(cluster)
+library(RWeka)
+```
+
+## Dataset
+
+The dataset come from corpus called HC Corpora. In [Readme](http://www.corpora.heliohost.org/aboutcorpus.html) for details on the corpora available.This is the training data to get the basis to preparation of NLP.
+
+```{r dataset, warning=FALSE}
+url <- "https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip"
+
+if(!file.exists("./data/Coursera-SwiftKey.zip")){
+     download.file(url, destfile = "./data/Coursera-SwiftKey.zip")
+}
+
+unzip(zipfile = "./data/Coursera-SwiftKey.zip", exdir = "./data")
+```
+
+## Summary
+
+The focus of this analyse are in English text files, this section will filter down to those that contains **"en_"** prefix for the training data that will be used. Bellow is the output of the preliminary analysis where are calculated size of the files, number of lines, the longest lines in each file and the number of the words in each file:
+
+```{r summary, warning=FALSE}
+flist <- list.files(path="./data", recursive=T, pattern=".*en_.*.txt")
+l <- lapply(paste("./data", flist, sep="/"), function(f) {
+   fsize <- file.info(f)[1]/1024/1024
+   con <- file(f, open="r")
+   lines <- readLines(con)
+   nchars <- lapply(lines, nchar)
+   maxchars <- which.max(nchars)
+   nwords <- sum(sapply(strsplit(lines, "\\s+"), length))
+   close(con)
+   return(c(f, format(round(fsize, 2), nsmall=2), length(lines), maxchars, nwords))
+})
+
+df <- data.frame(matrix(unlist(l), nrow=length(l), byrow=T))
+colnames(df) <- c("file", "size(MB)", "num.lines", "longest.line", "num.words")
+
+kable(df) %>%
+     add_header_above(c("Table 1: Summary training dataset (EN)" = 5)) %>%
+     kable_styling(full_width = F) %>%
+     column_spec(1, bold=T, border_right = T)
+
+```
+
+## Pre-processing
+
+To pre-processing in a context of NLP project, is recomended to use in R [tm](https://cran.r-project.org/web/views/NaturalLanguageProcessing.html) library in order to identify **distribution of the words** , **relationship between the words** and build figures and tables to **understand variation in the frequecies of words and word pairs**. The process bellow apply **tm** and take a rando sample of 20% of each file and perform a clean up and preprocessing:
+
+```{r tm_load, warning=FALSE}
+# Load files and reduce sample.
+set.seed(123)
+
+# Load Blog file
+d_blog <- file("./data/final/en_US/en_US.blogs.txt", open = "r")
+d_blog_lines <- readLines(d_blog)
+n_blog_lines <- length(d_blog_lines)
+blog_sample <- d_blog_lines[sample(1:n_blog_lines, n_blog_lines * 0.1, replace = FALSE)]
+close(d_blog)
+# Load News file
+d_news <- file("./data/final/en_US/en_US.news.txt", open = "r")
+d_news_lines <- readLines(d_news)
+n_news_lines <- length(d_news_lines)
+news_sample <- d_news_lines[sample(1:n_news_lines, n_news_lines * 0.2, replace = FALSE)]
+close(d_news)
+# Load Twitter file
+d_twitter <- file("./data/final/en_US/en_US.twitter.txt", open = "r")
+d_twitter_lines <- readLines(d_twitter)
+n_twitter_lines <- length(d_news_lines)
+twitter_sample <- d_twitter_lines[sample(1:n_twitter_lines, n_twitter_lines * 0.2, replace = FALSE)]
+close(d_twitter)
+
+blogCorpus <- VCorpus(VectorSource(list(blog_sample)))
+newsCorpus <- VCorpus(VectorSource(list(news_sample)))
+twitterCorpus <- VCorpus(VectorSource(list(twitter_sample)))
+
+```
+
+## Words Distribution
+
+This section shows **words distribution** and the frequency of occurrance for each file analysed.Plots will show the most 30 frequency words. 
+
+### News
+
+```{r NewsMatrix, warning=FALSE}
+dtm_news <- DocumentTermMatrix(newsCorpus)
+newsWordFreq <- colSums(as.matrix(dtm_news))
+ordNewsWordFreq <- order(newsWordFreq, decreasing = TRUE)
+
+NewsDF <- newsWordFreq[head(ordNewsWordFreq, 30)]
+NewsDF <- as.data.frame(NewsDF)
+NewsDF <- data.frame(words=rownames(NewsDF), freq=NewsDF)
+colnames(NewsDF) <- c("words", "freq")
+
+ggplot(NewsDF, aes(x = reorder(words, -freq), y = freq))+
+   geom_bar(stat = "identity")+
+   theme(axis.text.x = element_text(angle=45, hjust=1)) + 
+   labs(x="Words") + 
+   labs(y="Frequency") + 
+   labs(title="Plot 1: Frequency Words in News Sample")
+```
+
+### Blog
+
+```{r BlogMatrix, warning=FALSE}
+dtm_blog <- DocumentTermMatrix(blogCorpus)
+blogWordFreq <- colSums(as.matrix(dtm_blog))
+ordBlogWordFreq <- order(blogWordFreq, decreasing = TRUE)
+
+BlogDF <- blogWordFreq[head(ordBlogWordFreq, 30)]
+BlogDF <- as.data.frame(BlogDF)
+BlogDF <- data.frame(words=rownames(BlogDF), freq=BlogDF)
+colnames(BlogDF) <- c("words", "freq")
+
+ggplot(BlogDF, aes(x = reorder(words, -freq), y = freq))+
+   geom_bar(stat = "identity")+
+   theme(axis.text.x = element_text(angle=45, hjust=1))+ 
+   labs(x="Words") + 
+   labs(y="Frequency") + 
+   labs(title="Plot 2: Frequency Words in Blog Sample")
+```
+
+### Twitter
+
+```{r TwitterMatrix, warning=FALSE}
+dtm_twitter <- DocumentTermMatrix(twitterCorpus)
+twitterWordFreq <- colSums(as.matrix(dtm_twitter))
+ordTwitterWordFreq <- order(twitterWordFreq, decreasing = TRUE)
+
+TwitterDF <- twitterWordFreq[head(ordTwitterWordFreq, 30)]
+TwitterDF <- as.data.frame(TwitterDF)
+TwitterDF <- data.frame(words=rownames(TwitterDF), freq=TwitterDF)
+colnames(TwitterDF) <- c("words", "freq")
+
+ggplot(TwitterDF, aes(x = reorder(words, -freq), y = freq))+
+   geom_bar(stat = "identity")+
+   theme(axis.text.x = element_text(angle=45, hjust=1))+ 
+   labs(x="Words") + 
+   labs(y="Frequency") + 
+   labs(title="Plot 3: Frequency Words in Twitter Sample")
+```
+
+## Relationship between the words
+
+To build the first simple model for relationship between the word will be build a basic [n-gram model](http://en.wikipedia.org/wiki/N-gram) for predicting the text word based. For each file will be used this method to see some relations between words.
+
+### News
+
+```{r relationsNews}
+TrigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
+
+termdocmatrix <- TermDocumentMatrix(newsCorpus, control = list(tokenize = TrigramTokenizer))
+tdfNews <- data.frame(inspect(termdocmatrix))
+names(tdfNews) <- c("blog_data")
+tdfNews$Freq <- rowSums(tdfNews)
+tdfNews <- tdfNews[order(-tdfNews$Freq),]
+
+kable(tdfNews) %>%
+     add_header_above(c("Table 2: Relations Between words in News file (EN)" = 3)) %>%
+     kable_styling(full_width = F) %>%
+     column_spec(1, bold=T, border_right = T)
+
+```
+
+### Blog
+
+```{r relationsBlog}
+
+termdocmatrix <- TermDocumentMatrix(blogCorpus, control = list(tokenize = TrigramTokenizer))
+tdfBlog <- data.frame(inspect(termdocmatrix))
+names(tdfBlog) <- c("blog_data")
+tdfBlog$Freq <- rowSums(tdfBlog)
+tdfBlog <- tdfBlog[order(-tdfBlog$Freq),]
+
+kable(tdfBlog) %>%
+     add_header_above(c("Table 3: Relations Between words in Blog file (EN)" = 3)) %>%
+     kable_styling(full_width = F) %>%
+     column_spec(1, bold=T, border_right = T)
+
+```
+
+### Twitter
+
+```{r relationsTwitter}
+
+termdocmatrix <- TermDocumentMatrix(twitterCorpus, control = list(tokenize = TrigramTokenizer))
+tdfTwitter <- data.frame(inspect(termdocmatrix))
+names(tdfTwitter) <- c("blog_data")
+tdfTwitter$Freq <- rowSums(tdfTwitter)
+tdfTwitter <- tdfTwitter[order(-tdfTwitter$Freq),]
+
+kable(tdfTwitter) %>%
+     add_header_above(c("Table 3: Relations Between words in Blog file (EN)" = 3)) %>%
+     kable_styling(full_width = F) %>%
+     column_spec(1, bold=T, border_right = T)
+
+```
+
+## Conclusions
+
+Based in this exploratory analysis, it's possible to understand:
+
+1. Most of frequent words are articles and/or simple verbs, wich is completely reasonable. But according with the type of analysis using NLP is necessary to understand better the scope and address some additional cleaning data aspects to have a better results.
+
+2. The relations between words based in the most frequent just shoe basic formations based in articles and/or simple verbs. The relations is almost the same for the 3 files.
+
+## Next Steps: Building Predictive Model.
+
+For the predictive model, using text mining package to build a model based on the frequency of 1-gram to 3-gram phrases. The application will allow use to enter text. As the input is being provided word by word, it will be evaluated against our predictive model which will determine what word or a set of words are the most likely be the next token the user will input based on the frequency of n-grams. 
+
+The following are considerations for our model:
+
+1. Our training data (based on blogs, news, and twitter data) has to be cleaned up as articles should not be included in our n-gram maps.
+2. Remove apostrophes, and replace commas with spaces.
+3. Use sample data for faster performance.
+4. Remove profane words to avoid offensive content.
+5. Combine the data and use the sample in the model.
