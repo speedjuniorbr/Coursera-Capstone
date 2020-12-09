@@ -1,0 +1,205 @@
+---
+title: "Word Prediction - v1.0"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    social: menu
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(leaflet)
+library(ggplot2)
+library(mgcv)
+library(wordcloud)
+
+# Load dataset
+df <- readRDS("./data/3gram_en.rds")
+
+```
+
+Inputs {.sidebar}
+=======================================================================
+
+```{r}
+
+textInput("words", label="Type your text here (only english):")
+actionButton("go",label = "Get Next Word", icon = NULL, width = '150px')
+
+
+```
+
+Next Word
+=====================================
+
+```{r}
+
+nextWord <- eventReactive(input$go,{
+  
+  #get 2 last grams and lower
+  str <- input$words
+  str <- tolower(str)
+  str <- strsplit(str, " ")
+  a <- paste(str[[1]][length(str[[1]])-1],str[[1]][length(str[[1]])])
+  s <- paste("^",a,sep="")
+  
+  nextW <- head(df[grep(s, df[,1]),], 15)
+  
+  return(nextW)
+  
+})
+
+
+# using shiny reactive
+next1 <- reactive({
+  
+ 
+  ret <- nextWord()[1,1]
+  freq <- nextWord()[1,2]
+  str <- strsplit(ret, " ")
+  str[[1]][length(str[[1]])]
+  
+
+})
+
+next2 <- reactive({
+  
+  ret <- nextWord()[2,1]
+  freq <- nextWord()[2,2]
+  str <- strsplit(ret, " ")
+  str[[1]][length(str[[1]])]
+  
+})
+
+next3 <- reactive({
+  
+  ret <- nextWord()[3,1]
+  freq <- nextWord()[3,2]
+  str <- strsplit(ret, " ")
+  str[[1]][length(str[[1]])]
+  
+})
+
+next4 <- reactive({
+  
+ ret <- nextWord()[4,1]
+ freq <- nextWord()[4,2]
+ str <- strsplit(ret, " ")
+ str[[1]][length(str[[1]])]
+  
+})
+
+
+```
+
+Row
+-------------------------------------
+
+### Next Word 1st {.value-box}
+
+```{r}
+# Emit the download rate
+renderValueBox({
+  valueBox(
+    value = paste(next1()),
+    icon = "fa-text-height",
+    color = "primary"
+  )
+})
+
+```
+
+
+### Next Word 2nd {.value-box}
+
+```{r}
+# Emit the download rate
+renderValueBox({
+  valueBox(
+    value = paste(next2()),
+    icon = "fa-text-height",
+    color = "green"
+  )
+})
+
+```
+
+
+### Next Word 3rd {.value-box}
+
+```{r}
+# Emit the download rate
+renderValueBox({
+  valueBox(
+    value = paste(next3()),
+    icon = "fa-text-height",
+    color = "Orange"
+  )
+})
+
+```
+
+
+### Next Word 4th {.value-box}
+
+```{r}
+# Emit the download rate
+renderValueBox({
+  valueBox(
+    value = paste(next4()),
+    icon = "fa-text-height",
+    color = "brown"
+  )
+})
+
+```
+
+
+
+Row
+------------------------------------
+   
+### Word Map
+
+```{r}
+
+
+renderPlot({
+  
+  df <- nextWord()
+   
+
+  wordcloud(df$ngrams, # words
+          df$freq, # frequencies
+          scale = c(4,1), # size of largest and smallest words
+          min.freq=10,
+          colors = brewer.pal(8,"Dark2"), # number of colors, palette
+          rot.per = 0.5) # proportion of words to rotate 90 degrees
+  
+  
+})
+
+
+```  
+
+
+Help
+=====================================
+
+### Help
+
+#### How to use?
+- Select State or All to view all Country.
+- Select Ranges to view results in Dashboard.
+- Circles represents the amouth of population for each city.
+- Click in circles to view some detais about city.
+
+
+#### General Info
+- Developed by: **Expedito Pinto de Paula Junior**
+- Course: **Capstone**
+- Description: This Data Product it was developed using *flexdashboard* and *shiny*
+- Dataset Source: The dataset used from [kaggle -  brazilian cities](https://www.kaggle.com/crisparada/brazilian-cities)
+- Version: 1.1
+- Date: Nov 20, 2020
