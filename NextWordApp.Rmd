@@ -15,7 +15,7 @@ library(mgcv)
 library(wordcloud)
 
 # Load dataset
-df <- readRDS("./data/3gram_en.rds")
+df <- readRDS("./data/3gram_notail_en.rds")
 
 ```
 
@@ -190,16 +190,15 @@ Help
 ### Help
 
 #### How to use?
-- Select State or All to view all Country.
-- Select Ranges to view results in Dashboard.
-- Circles represents the amouth of population for each city.
-- Click in circles to view some detais about city.
+- Type your text in english.
+- Click in "Get Next Word" button.
+- Evaluate the four most possible next word.
+- Evaluate the Word Cloud for 15 most possible next word.
 
 
 #### General Info
 - Developed by: **Expedito Pinto de Paula Junior**
 - Course: **Capstone**
 - Description: This Data Product it was developed using *flexdashboard* and *shiny*
-- Dataset Source: The dataset used from [kaggle -  brazilian cities](https://www.kaggle.com/crisparada/brazilian-cities)
-- Version: 1.1
-- Date: Nov 20, 2020
+- Version: 1.0
+- Date: Dec 10, 2020
